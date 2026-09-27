@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Balathor Timer</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #0f1117; --panel: #181b24; --panel-2: #1f2330; --line: #2a2f3e;
+    --text: #e8eaf0; --muted: #8a90a2; --accent: #f0a93b; --accent-2: #e5533d;
+    --ok: #4cc38a; --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -200px, #2a1f14 0%, var(--bg) 60%);
+    color: var(--text); display: flex; justify-content: center; padding: 32px 16px;
+  }
+  main { width: 100%; max-width: 920px; display: grid; gap: 20px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 26px; letter-spacing: .5px; }
+  h1 span { color: var(--accent); }
+  h2 { margin: 0 0 16px; font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); font-weight: 600; }
+  .hint { color: var(--muted); font-size: 13px; }
+  kbd { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; font-size: 12px; }
+  .grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+
+  /* Cycle timer */
+  .ring-wrap { position: relative; width: 260px; height: 260px; margin: 4px auto 18px; }
+  .ring-wrap svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring-bg { stroke: var(--panel-2); }
+  .ring-fg { stroke: var(--accent); stroke-linecap: round; transition: stroke .2s; }
+  .ring-fg.warn { stroke: var(--accent-2); }
+  .ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .big { font-size: 72px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+  .big small { font-size: 28px; color: var(--muted); }
+  .sub { margin-top: 8px; color: var(--muted); font-size: 14px; }
+  .flash { animation: flash .5s ease-out; }
+  @keyframes flash { from { box-shadow: 0 0 0 0 rgba(240,169,59,.7), inset 0 0 60px rgba(240,169,59,.25); } to { box-shadow: 0 0 0 24px rgba(240,169,59,0); } }
+
+  .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  button {
+    font: inherit; font-weight: 600; border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+    padding: 10px 18px; border-radius: 10px; cursor: pointer; transition: background .15s, border-color .15s, transform .05s;
+  }
+  button:hover { border-color: #3b4254; background: #262b3a; }
+  button:active { transform: translateY(1px); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #1a1206; }
+  button.primary:hover { background: #f5b95a; }
+  button.danger { color: #ff9c8c; }
+  button.on { background: var(--ok); border-color: var(--ok); color: #06140d; }
+
+  .settings { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+  label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+  label.check { display: flex; align-items: center; gap: 8px; color: var(--text); }
+  input[type=number], input[type=text], select {
+    font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; width: 100%;
+  }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+  .full { grid-column: 1 / -1; }
+
+  /* Stopwatch */
+  .sw { font-size: 56px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: center; margin: 6px 0 4px; }
+  .sw.over { color: var(--accent-2); }
+  .bar { height: 6px; background: var(--panel-2); border-radius: 99px; overflow: hidden; margin: 10px 0 18px; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .2s linear; }
+  .bar.over > div { background: var(--accent-2); }
+
+  /* Mic */
+  .status { display: flex; align-items: center; gap: 8px; font-size: 14px; margin: 4px 0 12px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+  .dot.live { background: var(--ok); box-shadow: 0 0 0 0 rgba(76,195,138,.6); animation: pulse 1.4s infinite; }
+  .dot.err { background: var(--accent-2); }
+  @keyframes pulse { to { box-shadow: 0 0 0 10px rgba(76,195,138,0); } }
+  .heard { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-height: 42px; font-size: 14px; color: var(--muted); word-break: break-word; }
+  .heard b { color: var(--accent); }
+  .stack { display: grid; gap: 20px; align-content: start; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>⚔️ Balathor <span>Timer</span></h1>
+    <div class="hint"><kbd>Spacja</kbd> reset cyklu · <kbd>S</kbd> stoper start/pauza · <kbd>M</kbd> mikrofon · <kbd>Esc</kbd> zatrzymaj wszystko</div>
+  </header>
+
+  <div class="grid">
+    <!-- CYKL -->
+    <section class="card" id="cycleCard">
+      <h2>Cykl</h2>
+      <div class="ring-wrap">
+        <svg viewBox="0 0 120 120">
+          <circle class="ring-bg" cx="60" cy="60" r="52" fill="none" stroke-width="10"/>
+          <circle class="ring-fg" id="ring" cx="60" cy="60" r="52" fill="none" stroke-width="10"/>
+        </svg>
+        <div class="ring-center">
+          <div class="big" id="cycleBig">18<small>.0</small></div>
+          <div class="sub" id="cycleSub">zatrzymany</div>
+        </div>
+      </div>
+      <div class="row">
+        <button class="primary" id="cycleReset">↻ Start / reset</button>
+        <button id="cycleStop">■ Stop</button>
+      </div>
+
+      <div class="settings">
+        <label>Interwał (s)
+          <input type="number" id="optInterval" min="1" max="600" step="0.5">
+        </label>
+        <label>Głośność
+          <input type="range" id="optVolume" min="0" max="1" step="0.05">
+        </label>
+        <label class="check"><input type="checkbox" id="optCountdown"> Tyknięcia 3-2-1 przed sygnałem</label>
+        <label class="check"><input type="checkbox" id="optSpeak"> Dodatkowo komunikat głosowy</label>
+      </div>
+    </section>
+
+    <div class="stack">
+      <!-- MIKROFON -->
+      <section class="card">
+        <h2>Mikrofon</h2>
+        <div class="status"><span class="dot" id="micDot"></span><span id="micStatus">wyłączony</span></div>
+        <div class="row" style="justify-content:flex-start;margin-bottom:14px">
+          <button id="micToggle">🎤 Włącz nasłuch</button>
+        </div>
+        <div class="heard" id="micHeard">Tu pojawi się to, co słyszy mikrofon.</div>
+        <div class="settings" style="margin-top:14px">
+          <label class="full">Słowa klucze (po przecinku)
+            <input type="text" id="optKeywords">
+          </label>
+          <label class="full">Fraza stop (zatrzymuje cykl i stoper)
+            <input type="text" id="optStopPhrase">
+          </label>
+          <label>Korekta (s)
+            <input type="number" id="optOffset" min="-60" max="60" step="0.1">
+          </label>
+          <label>Język
+            <select id="optLang">
+              <option value="pl-PL">polski</option>
+              <option value="en-US">angielski</option>
+            </select>
+          </label>
+          <div class="hint full">Po wykryciu słowa cykl startuje od nowa z czasem <b id="offsetPreview">18 − 1 s</b> (korekta na Twoją reakcję i opóźnienie rozpoznawania). Dodatnia wartość skraca czas, ujemna go wydłuża. Wymaga Chrome/Edge.</div>
+        </div>
+      </section>
+
+      <!-- STOPER -->
+      <section class="card">
+        <h2>Stoper</h2>
+        <div class="sw" id="swBig">00:00.0</div>
+        <div class="bar" id="swBar"><div></div></div>
+        <div class="row">
+          <button class="primary" id="swToggle">▶ Start</button>
+          <button class="danger" id="swReset">Reset</button>
+        </div>
+        <div class="settings">
+          <label>Alarm po (min)
+            <input type="number" id="optAlarm" min="0.1" max="180" step="0.5">
+          </label>
+          <div class="hint" id="swHint" style="align-self:end">alarm: 10:00</div>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- ustawienia (zapisywane w cookie, nie w localStorage) ----------
+  function getCookie(name) {
+    const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  function setCookie(name, value, days = 365) {
+    const d = new Date(); d.setTime(d.getTime() + days * 864e5);
+    document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax`;
+  }
+  const DEFAULTS = { interval: 18, volume: 0.7, countdown: true, speak: false,
+                     keywords: 'reset, kółka, kolka, teraz', stopPhrase: 'koniec balathora',
+                     offset: 1, lang: 'pl-PL', alarmMin: 10 };
+  let savedRaw = {};
+  try { savedRaw = JSON.parse(getCookie('balathor-timer') || '{}'); } catch { savedRaw = {}; }
+  const settings = Object.assign({}, DEFAULTS, savedRaw);
+  const save = () => setCookie('balathor-timer', JSON.stringify(settings));
+
+  // ---------- audio: wszystkie dźwięki planowane na zegarze AudioContext ----------
+  // (zegar audio nie jest dławiony w tle, w przeciwieństwie do setInterval)
+  let ctx = null, master = null;
+  function audio() {
+    if (!ctx) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      master = ctx.createGain(); master.gain.value = settings.volume; master.connect(ctx.destination);
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+  // performance.now() (ms) -> czas audio (s)
+  const toAudio = (perfMs) => audio().currentTime + (perfMs - performance.now()) / 1000;
+
+  function tone(at, freq, dur, { type = 'sine', gain = 1 } = {}) {
+    const c = audio();
+    const t = Math.max(at, c.currentTime);
+    const osc = c.createOscillator(), g = c.createGain();
+    osc.type = type; osc.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g).connect(master);
+    osc.start(t); osc.stop(t + dur + 0.02);
+    return osc;
+  }
+  const sounds = {
+    cycle: (t) => [tone(t, 880, 0.18, { type: 'triangle' }), tone(t + 0.14, 1320, 0.32, { type: 'triangle' })],
+    tick:  (t) => [tone(t, 660, 0.07, { type: 'sine', gain: 0.45 })],
+    alarm: (t) => {
+      const out = [];
+      for (let i = 0; i < 4; i++) {
+        out.push(tone(t + i * 0.45, 988, 0.2, { type: 'square', gain: 0.35 }));
+        out.push(tone(t + i * 0.45 + 0.2, 740, 0.2, { type: 'square', gain: 0.35 }));
+      }
+      return out;
+    },
+    confirm: (t) => [tone(t, 520, 0.08, { gain: 0.5 }), tone(t + 0.09, 780, 0.1, { gain: 0.5 })],
+  };
+  const cancel = (nodes) => { for (const n of nodes) { try { n.stop(0); } catch {} } nodes.length = 0; };
+
+  // ---------- cykl ----------
+  const R = 2 * Math.PI * 52;
+  $('ring').style.strokeDasharray = R;
+  let anchor = null;          // performance.now() początku bieżącej serii cykli
+  let scheduledUntil = 0;     // numer ostatniego zaplanowanego cyklu
+  let cycleNodes = [];
+  let lastCycleIdx = 0;
+
+  function intervalMs() { return settings.interval * 1000; }
+
+  function scheduleCycles() {
+    if (anchor === null) return;
+    const now = performance.now(), iv = intervalMs();
+    const horizon = now + 60000; // planuj ~minutę do przodu
+    while (anchor + (scheduledUntil + 1) * iv < horizon) {
+      scheduledUntil++;
+      const at = anchor + scheduledUntil * iv;
+      if (at < now - 50) continue;
+      cycleNodes.push(...sounds.cycle(toAudio(at)));
+      if (settings.countdown) {
+        for (const s of [3, 2, 1]) {
+          const tt = at - s * 1000;
+          if (tt > now && s * 1000 < iv) cycleNodes.push(...sounds.tick(toAudio(tt)));
+        }
+      }
+    }
+  }
+
+  function startCycle(elapsedMs = 0) {
+    audio();
+    cancel(cycleNodes);
+    anchor = performance.now() - elapsedMs;
+    scheduledUntil = 0; lastCycleIdx = 0;
+    scheduleCycles();
+    $('cycleCard').classList.remove('flash'); void $('cycleCard').offsetWidth; $('cycleCard').classList.add('flash');
+  }
+  function stopCycle() { cancel(cycleNodes); anchor = null; }
+
+  // ---------- stoper ----------
+  let swStart = null, swAcc = 0, swNodes = [], swAlarmFired = false;
+  const swElapsed = () => swAcc + (swStart !== null ? performance.now() - swStart : 0);
+  const alarmMs = () => settings.alarmMin * 60000;
+  function swScheduleAlarm() {
+    cancel(swNodes);
+    if (swStart === null) return;
+    const at = swStart + (alarmMs() - swAcc);
+    if (at > performance.now()) { swNodes.push(...sounds.alarm(toAudio(at))); swAlarmFired = false; }
+  }
+  function swToggle() {
+    audio();
+    if (swStart === null) { swStart = performance.now(); swScheduleAlarm(); }
+    else { swAcc += performance.now() - swStart; swStart = null; cancel(swNodes); }
+    renderSwButton();
+  }
+  function swReset() { swStart = null; swAcc = 0; cancel(swNodes); swAlarmFired = false; renderSwButton(); }
+  function renderSwButton() { $('swToggle').textContent = swStart === null ? (swAcc ? '▶ Wznów' : '▶ Start') : '⏸ Pauza'; }
+
+  // ---------- zatrzymaj wszystko (Esc / fraza stop) ----------
+  // Zatrzymuje cykl i pauzuje stoper (nie kasuje odmierzonego czasu — do tego jest osobny Reset).
+  function stopAll() {
+    stopCycle();
+    if (swStart !== null) { swAcc += performance.now() - swStart; swStart = null; cancel(swNodes); renderSwButton(); }
+  }
+  function fmt(ms) {
+    const t = Math.max(0, ms), m = Math.floor(t / 60000), s = Math.floor(t / 1000) % 60, d = Math.floor(t / 100) % 10;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${d}`;
+  }
+
+  // ---------- komunikat głosowy (opcjonalny) ----------
+  function say(text) {
+    if (!settings.speak || !('speechSynthesis' in window)) return;
+    const u = new SpeechSynthesisUtterance(text); u.lang = settings.lang; u.rate = 1.3; u.volume = settings.volume;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }
+
+  // ---------- pętla rysowania ----------
+  function render() {
+    const now = performance.now(), iv = intervalMs();
+    if (anchor === null) {
+      $('cycleBig').innerHTML = `${Math.floor(settings.interval)}<small>.${Math.round((settings.interval % 1) * 10)}</small>`;
+      $('cycleSub').textContent = 'zatrzymany';
+      $('ring').style.strokeDashoffset = 0; $('ring').classList.remove('warn');
+    } else {
+      const el = now - anchor;
+      // el < 0 to okno wydłużenia pierwszego cyklu (ujemna korekta) — liczy się jako część cyklu 0,
+      // nie jako "poprzedni" cykl (naiwny floor(el/iv) dałby tu -1 i zły odliczany czas).
+      let idx, remain;
+      if (el < 0) { idx = 0; remain = iv - el; }
+      else { idx = Math.floor(el / iv); remain = iv - (el - idx * iv); }
+      if (idx > lastCycleIdx) {
+        lastCycleIdx = idx;
+        const card = $('cycleCard'); card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');
+        say('kółka');
+      }
+      const sec = remain / 1000;
+      $('cycleBig').innerHTML = `${Math.floor(sec)}<small>.${Math.floor((sec % 1) * 10)}</small>`;
+      $('cycleSub').textContent = `cykl #${idx + 1}`;
+      $('ring').style.strokeDashoffset = R * (1 - Math.min(1, Math.max(0, remain / iv)));
+      $('ring').classList.toggle('warn', sec <= 3);
+      scheduleCycles();
+    }
+
+    const e = swElapsed(), over = e >= alarmMs();
+    $('swBig').textContent = fmt(e);
+    $('swBig').classList.toggle('over', over);
+    $('swBar').classList.toggle('over', over);
+    $('swBar').firstElementChild.style.width = Math.min(100, e / alarmMs() * 100) + '%';
+    if (over && !swAlarmFired && swStart !== null) { swAlarmFired = true; say('minęło ' + settings.alarmMin + ' minut'); }
+  }
+  (function loop() { render(); requestAnimationFrame(loop); })();
+  setInterval(render, 250); // gdy karta jest w tle, rAF stoi — to utrzymuje planowanie dźwięków
+
+  // ---------- rozpoznawanie mowy ----------
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, micOn = false, lastTrigger = 0;
+  const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
+  const keywords = () => settings.keywords.split(',').map((k) => norm(k.trim())).filter(Boolean);
+  const matches = (txt, phrase) => new RegExp(`(^|\\s)${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(txt);
+
+  function setMic(state, text) {
+    $('micDot').className = 'dot' + (state === 'live' ? ' live' : state === 'err' ? ' err' : '');
+    $('micStatus').textContent = text;
+    $('micToggle').textContent = micOn ? '⏹ Wyłącz nasłuch' : '🎤 Włącz nasłuch';
+    $('micToggle').classList.toggle('on', micOn);
+  }
+
+  function onKeyword(word) {
+    const now = performance.now();
+    if (now - lastTrigger < 2500) return; // interim + final tej samej frazy = jeden reset
+    lastTrigger = now;
+    // off > 0 skraca czas do sygnału, off < 0 go wydłuża
+    const off = Math.min(settings.offset, settings.interval - 0.1);
+    startCycle(off * 1000);
+    sounds.confirm(audio().currentTime);
+    const sign = off >= 0 ? '−' : '+';
+    $('micHeard').innerHTML = `✔ wykryto <b>${word}</b> — reset (${sign}${Math.abs(off)}s)`;
+  }
+
+  function onStopPhrase(phrase) {
+    const now = performance.now();
+    if (now - lastTrigger < 2500) return;
+    lastTrigger = now;
+    stopAll();
+    sounds.confirm(audio().currentTime);
+    $('micHeard').innerHTML = `⏹ wykryto <b>${phrase}</b> — zatrzymano wszystko`;
+  }
+
+  function buildRec() {
+    rec = new SR();
+    rec.lang = settings.lang; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 3;
+    rec.onstart = () => setMic('live', 'nasłuchuję…');
+    rec.onresult = (ev) => {
+      const kws = keywords();
+      const stopPhrase = norm(settings.stopPhrase.trim());
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const res = ev.results[i];
+        for (let a = 0; a < res.length; a++) {
+          const txt = norm(res[a].transcript);
+          if (stopPhrase && matches(txt, stopPhrase)) { onStopPhrase(settings.stopPhrase.trim()); return; }
+          const hit = kws.find((k) => matches(txt, k));
+          if (hit) { onKeyword(hit); return; }
+        }
+        if (performance.now() - lastTrigger > 2500) $('micHeard').textContent = res[0].transcript;
+      }
+    };
+    rec.onerror = (ev) => {
+      if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
+        micOn = false; setMic('err', 'brak dostępu do mikrofonu');
+      } else if (ev.error !== 'no-speech' && ev.error !== 'aborted') {
+        setMic('err', 'błąd: ' + ev.error);
+      }
+    };
+    rec.onend = () => { if (micOn) { try { rec.start(); } catch {} } else setMic('', 'wyłączony'); };
+  }
+
+  function micToggle() {
+    if (!SR) { setMic('err', 'przeglądarka nie obsługuje rozpoznawania mowy (użyj Chrome/Edge)'); return; }
+    audio();
+    micOn = !micOn;
+    if (micOn) { buildRec(); try { rec.start(); } catch {} setMic('live', 'uruchamiam…'); }
+    else { rec && rec.abort(); setMic('', 'wyłączony'); }
+  }
+  if (!SR) setMic('err', 'brak obsługi mowy w tej przeglądarce (Chrome/Edge)');
+
+  // ---------- UI / ustawienia ----------
+  function bindNum(id, key, after) {
+    const el = $(id); el.value = settings[key];
+    el.addEventListener('change', () => {
+      const v = parseFloat(el.value);
+      if (!Number.isFinite(v) || v < +el.min) { el.value = settings[key]; return; }
+      settings[key] = v; save(); after && after();
+    });
+  }
+  function refreshHints() {
+    const sign = settings.offset >= 0 ? '−' : '+';
+    $('offsetPreview').textContent = `${settings.interval} ${sign} ${Math.abs(settings.offset)} s = ${Math.max(0, +(settings.interval - settings.offset).toFixed(1))} s`;
+    const m = Math.floor(settings.alarmMin), s = Math.round((settings.alarmMin % 1) * 60);
+    $('swHint').textContent = `alarm: ${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+  bindNum('optInterval', 'interval', () => { if (anchor !== null) startCycle(0); refreshHints(); });
+  bindNum('optOffset', 'offset', refreshHints);
+  bindNum('optAlarm', 'alarmMin', () => { swScheduleAlarm(); refreshHints(); });
+  $('optVolume').value = settings.volume;
+  $('optVolume').addEventListener('input', (e) => { settings.volume = +e.target.value; if (master) master.gain.value = settings.volume; save(); });
+  for (const [id, key] of [['optCountdown', 'countdown'], ['optSpeak', 'speak']]) {
+    $(id).checked = settings[key];
+    $(id).addEventListener('change', (e) => { settings[key] = e.target.checked; save(); if (anchor !== null && key === 'countdown') { const el = performance.now() - anchor; startCycle(el % intervalMs()); } });
+  }
+  $('optKeywords').value = settings.keywords;
+  $('optKeywords').addEventListener('change', (e) => { settings.keywords = e.target.value; save(); });
+  $('optStopPhrase').value = settings.stopPhrase;
+  $('optStopPhrase').addEventListener('change', (e) => { settings.stopPhrase = e.target.value; save(); });
+  $('optLang').value = settings.lang;
+  $('optLang').addEventListener('change', (e) => { settings.lang = e.target.value; save(); if (micOn) { micOn = false; rec.abort(); micToggle(); } });
+  refreshHints();
+
+  $('cycleReset').addEventListener('click', () => startCycle(0));
+  $('cycleStop').addEventListener('click', stopCycle);
+  $('swToggle').addEventListener('click', swToggle);
+  $('swReset').addEventListener('click', swReset);
+  $('micToggle').addEventListener('click', micToggle);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { stopAll(); return; } // Esc działa zawsze, nawet z fokusem w polu ustawień
+    if (e.target.matches('input, select')) return;
+    if (e.code === 'Space') { e.preventDefault(); startCycle(0); }
+    else if (e.key === 's' || e.key === 'S') swToggle();
+    else if (e.key === 'm' || e.key === 'M') micToggle();
+  });
+
+  // do testów
+  window.__balathor = { startCycle, stopCycle, stopAll, onKeyword, onStopPhrase, swToggle, swReset, settings, state: () => ({ anchor, swElapsed: swElapsed(), scheduled: cycleNodes.length }) };
+})();
+</script>
+</body>
+</html>
