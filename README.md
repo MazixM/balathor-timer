@@ -6,7 +6,7 @@ Prosta, samodzielna strona do pilnowania cyklu Balathora w Metin2. Aplikacja nie
 
 ## Uruchomienie lokalne
 
-Otwórz `index.html` w przeglądarce. Dostęp do mikrofonu może wymagać uruchomienia strony przez `localhost` albo HTTPS; bez mikrofonu działają timery, stoper i dźwięki.
+Otwórz `index.html` w przeglądarce. Dostęp do mikrofonu może wymagać uruchomienia strony przez `localhost` albo HTTPS; bez mikrofonu działają timery, stoper i dźwięki. W komendach głosowych fraza „start” uruchamia stoper, a frazy z listy resetują cykl.
 
 ## Publikowanie
 

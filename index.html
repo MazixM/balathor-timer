@@ -130,7 +130,10 @@
         </div>
         <div class="heard" id="micHeard">Tu pojawi się to, co słyszy mikrofon.</div>
         <div class="settings" style="margin-top:14px">
-          <label class="full">Słowa klucze (po przecinku)
+          <label class="full">Fraza startu stopera
+            <input type="text" id="optStartPhrase">
+          </label>
+          <label class="full">Frazy resetujące cykl (po przecinku)
             <input type="text" id="optKeywords">
           </label>
           <label class="full">Fraza stop (zatrzymuje cykl i stoper)
@@ -145,7 +148,7 @@
               <option value="en-US">angielski</option>
             </select>
           </label>
-          <div class="hint full">Po wykryciu słowa cykl startuje od nowa z czasem <b id="offsetPreview">18 − 1 s</b> (korekta na Twoją reakcję i opóźnienie rozpoznawania). Dodatnia wartość skraca czas, ujemna go wydłuża. Wymaga Chrome/Edge.</div>
+          <div class="hint full">Fraza startu uruchamia stoper. Słowa z listy resetują cykl z korektą <b id="offsetPreview">18 − 1 s</b> (dodatnia wartość skraca czas, ujemna go wydłuża). Wymaga Chrome/Edge.</div>
         </div>
       </section>
 
@@ -184,20 +187,20 @@
     document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax`;
   }
   const DEFAULTS = { interval: 18, volume: 0.7, countdown: true, speak: false,
-                     keywords: 'start, reset, kółka, kolka, teraz', stopPhrase: 'koniec balathora',
+                     keywords: 'reset, kółka, kolka, teraz', startPhrase: 'start', stopPhrase: 'koniec balathora',
                      offset: 1, lang: 'pl-PL', alarmMin: 10 };
   let savedRaw = {};
   try { savedRaw = JSON.parse(getCookie('balathor-timer') || '{}'); } catch { savedRaw = {}; }
   const settings = Object.assign({}, DEFAULTS, savedRaw);
-  const needsStartKeywordMigration = typeof savedRaw.keywords === 'string' && !savedRaw.startKeywordMigrated;
-  if (needsStartKeywordMigration) {
+  const needsStartPhraseMigration = typeof savedRaw.keywords === 'string' && !savedRaw.startPhraseMigrated;
+  if (needsStartPhraseMigration) {
     const savedKeywords = settings.keywords.split(',').map((keyword) => keyword.trim()).filter(Boolean);
-    if (!savedKeywords.some((keyword) => keyword.toLowerCase() === 'start')) savedKeywords.unshift('start');
-    settings.keywords = savedKeywords.join(', ');
-    settings.startKeywordMigrated = true;
+    settings.keywords = savedKeywords.filter((keyword) => keyword.toLowerCase() !== 'start').join(', ');
+    settings.startPhraseMigrated = true;
   }
+  delete settings.startKeywordMigrated;
   const save = () => setCookie('balathor-timer', JSON.stringify(settings));
-  if (needsStartKeywordMigration) save();
+  if (needsStartPhraseMigration) save();
 
   // ---------- audio: wszystkie dźwięki planowane na zegarze AudioContext ----------
   // (zegar audio nie jest dławiony w tle, w przeciwieństwie do setInterval)
@@ -378,6 +381,18 @@
     $('micHeard').innerHTML = `✔ wykryto <b>${word}</b> — reset (${sign}${Math.abs(off)}s)`;
   }
 
+  function onStartPhrase(phrase) {
+    const now = performance.now();
+    if (now - lastTrigger < 2500) return;
+    lastTrigger = now;
+    const alreadyRunning = swStart !== null;
+    const wasPaused = swAcc > 0;
+    if (!alreadyRunning) swToggle();
+    sounds.confirm(audio().currentTime);
+    const status = alreadyRunning ? 'stoper już działa' : wasPaused ? 'stoper wznowiony' : 'stoper uruchomiony';
+    $('micHeard').innerHTML = `⏱ wykryto <b>${phrase}</b> — ${status}`;
+  }
+
   function onStopPhrase(phrase) {
     const now = performance.now();
     if (now - lastTrigger < 2500) return;
@@ -393,12 +408,14 @@
     rec.onstart = () => setMic('live', 'nasłuchuję…');
     rec.onresult = (ev) => {
       const kws = keywords();
+      const startPhrase = norm(settings.startPhrase.trim());
       const stopPhrase = norm(settings.stopPhrase.trim());
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
         const res = ev.results[i];
         for (let a = 0; a < res.length; a++) {
           const txt = norm(res[a].transcript);
           if (stopPhrase && matches(txt, stopPhrase)) { onStopPhrase(settings.stopPhrase.trim()); return; }
+          if (startPhrase && matches(txt, startPhrase)) { onStartPhrase(settings.startPhrase.trim()); return; }
           const hit = kws.find((k) => matches(txt, k));
           if (hit) { onKeyword(hit); return; }
         }
@@ -448,6 +465,8 @@
     $(id).checked = settings[key];
     $(id).addEventListener('change', (e) => { settings[key] = e.target.checked; save(); if (anchor !== null && key === 'countdown') { const el = performance.now() - anchor; startCycle(el % intervalMs()); } });
   }
+  $('optStartPhrase').value = settings.startPhrase;
+  $('optStartPhrase').addEventListener('change', (e) => { settings.startPhrase = e.target.value; save(); });
   $('optKeywords').value = settings.keywords;
   $('optKeywords').addEventListener('change', (e) => { settings.keywords = e.target.value; save(); });
   $('optStopPhrase').value = settings.stopPhrase;
@@ -471,7 +490,7 @@
   });
 
   // do testów
-  window.__balathor = { startCycle, stopCycle, stopAll, onKeyword, onStopPhrase, swToggle, swReset, settings, state: () => ({ anchor, swElapsed: swElapsed(), scheduled: cycleNodes.length }) };
+  window.__balathor = { startCycle, stopCycle, stopAll, onKeyword, onStartPhrase, onStopPhrase, swToggle, swReset, settings, state: () => ({ anchor, swElapsed: swElapsed(), scheduled: cycleNodes.length }) };
 })();
 </script>
 </body>
