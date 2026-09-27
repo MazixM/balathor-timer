@@ -1,22 +1,22 @@
 # Balathor Timer
 
-Prosta, samodzielna strona do pilnowania cyklu Balathora w Metin2. Aplikacja działa bez frameworków i zależności — głównym plikiem jest `index.html`.
+Prosta, samodzielna strona do pilnowania cyklu Balathora w Metin2. Aplikacja nie wymaga frameworka ani zależności — głównym plikiem jest `index.html`.
+
+**Wersja produkcyjna:** [https://balathor-timer.vercel.app/](https://balathor-timer.vercel.app/)
 
 ## Uruchomienie lokalne
 
 Otwórz `index.html` w przeglądarce. Dostęp do mikrofonu może wymagać uruchomienia strony przez `localhost` albo HTTPS; bez mikrofonu działają timery, stoper i dźwięki.
 
-## Deploy na Vercel
+## Publikowanie
 
-Workflow `.github/workflows/deploy.yml` publikuje stronę na Vercel po każdym pushu do gałęzi `main` (oraz ręcznie przez **Actions → Deploy to Vercel → Run workflow**).
+Jedynym mechanizmem wdrażania jest natywna integracja repozytorium GitHub z Vercel. Produkcyjna strona działa pod adresem **https://balathor-timer.vercel.app/**. Każdy push do gałęzi `main` powoduje wdrożenie produkcyjne w tym projekcie Vercel.
 
-Przed pierwszym deployem:
+Jeśli konfigurujesz projekt od zera, zaimportuj repozytorium `MazixM/balathor-timer` w Vercel i ustaw:
 
-1. Utwórz projekt Vercel dla tego repozytorium (root projektu: katalog repozytorium; framework: **Other** / brak frameworka).
-2. W GitHubie otwórz **Settings → Secrets and variables → Actions** i dodaj repozytoryjne sekrety:
-   - `VERCEL_TOKEN` — token z ustawień konta Vercel,
-   - `VERCEL_ORG_ID` — identyfikator konta/zespołu Vercel,
-   - `VERCEL_PROJECT_ID` — identyfikator projektu Vercel.
-3. Zapisz pierwszy commit lub uruchom workflow ręcznie.
+- **Framework Preset:** Other,
+- **Root Directory:** `./`,
+- **Build Command:** puste (bez kompilacji),
+- **Output Directory:** `.`.
 
-Nie wpisuj tych wartości do plików repozytorium. Workflow używa Vercel CLI do pobrania ustawień projektu, zbudowania i wdrożenia strony produkcyjnej.
+W Vercel w **Project → Settings → Git** sprawdź, że podłączone jest repozytorium `MazixM/balathor-timer`, a gałęzią produkcyjną jest `main`. Nie są potrzebne sekrety Vercel w GitHub Actions — deploy obsługuje integracja Vercel.
