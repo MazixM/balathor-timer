@@ -184,12 +184,20 @@
     document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax`;
   }
   const DEFAULTS = { interval: 18, volume: 0.7, countdown: true, speak: false,
-                     keywords: 'reset, kółka, kolka, teraz', stopPhrase: 'koniec balathora',
+                     keywords: 'start, reset, kółka, kolka, teraz', stopPhrase: 'koniec balathora',
                      offset: 1, lang: 'pl-PL', alarmMin: 10 };
   let savedRaw = {};
   try { savedRaw = JSON.parse(getCookie('balathor-timer') || '{}'); } catch { savedRaw = {}; }
   const settings = Object.assign({}, DEFAULTS, savedRaw);
+  const needsStartKeywordMigration = typeof savedRaw.keywords === 'string' && !savedRaw.startKeywordMigrated;
+  if (needsStartKeywordMigration) {
+    const savedKeywords = settings.keywords.split(',').map((keyword) => keyword.trim()).filter(Boolean);
+    if (!savedKeywords.some((keyword) => keyword.toLowerCase() === 'start')) savedKeywords.unshift('start');
+    settings.keywords = savedKeywords.join(', ');
+    settings.startKeywordMigrated = true;
+  }
   const save = () => setCookie('balathor-timer', JSON.stringify(settings));
+  if (needsStartKeywordMigration) save();
 
   // ---------- audio: wszystkie dźwięki planowane na zegarze AudioContext ----------
   // (zegar audio nie jest dławiony w tle, w przeciwieństwie do setInterval)
